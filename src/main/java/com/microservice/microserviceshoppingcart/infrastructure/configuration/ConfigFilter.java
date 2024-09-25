@@ -30,6 +30,7 @@ public class ConfigFilter {
                                 .requestMatchers("/auth/**").permitAll()
                                 .requestMatchers("/swagger-ui/**","/v3/api-docs/**").permitAll()
                                 .requestMatchers(HttpMethod.POST,"/shopping-cart/**").hasAuthority(ROLE_CLIENT)
+                                .requestMatchers(HttpMethod.DELETE,"/shopping-cart/**").hasAuthority(ROLE_CLIENT)
                                 .anyRequest().authenticated()
                 )
                 .sessionManagement(sessionManagement ->

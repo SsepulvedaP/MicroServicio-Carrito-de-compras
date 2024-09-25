@@ -37,4 +37,23 @@ public class ShoppingCarRestController {
         cartHandler.addProductToCart(itemRequest, userId);
         return ResponseEntity.status(HttpStatus.CREATED).build();
     }
+
+    @Operation(summary = "Eliminar un producto del carrito de compras",
+            description = "Elimina un producto del carrito de compras de un usuario")
+    @ApiResponses(value = {
+            @ApiResponse(responseCode = "204", description = "Producto eliminado del carrito"),
+            @ApiResponse(responseCode = "400", description = "Petición inválida"),
+            @ApiResponse(responseCode = "404", description = "Producto no encontrado en el carrito"),
+            @ApiResponse(responseCode = "500", description = "Error interno del servidor")
+    })
+    @DeleteMapping("/remove-product/{productId}")
+    public ResponseEntity<Void> removeProductFromShoppingCart(@PathVariable Long productId) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        SecurityUser userDetails = (SecurityUser) authentication.getPrincipal();
+        Long userId = userDetails.getId();
+
+        cartHandler.removeProduct(productId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
 }

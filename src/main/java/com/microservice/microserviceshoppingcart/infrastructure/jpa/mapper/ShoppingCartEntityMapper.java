@@ -17,4 +17,12 @@ public interface ShoppingCartEntityMapper {
     @Mapping(target = "userId", source = "userId")
     ShoppingCartEntity toEntity(ShoppingCart shoppingCart);
 
+    default ShoppingCartEntity toEntityWithItems(ShoppingCart shoppingCart) {
+        ShoppingCartEntity shoppingCartEntity = toEntity(shoppingCart);
+        if (shoppingCartEntity.getItems() != null) {
+            shoppingCartEntity.getItems().forEach(itemCartEntity -> itemCartEntity.setShoppingCartEntity(shoppingCartEntity));
+        }
+        return shoppingCartEntity;
+    }
+
 }

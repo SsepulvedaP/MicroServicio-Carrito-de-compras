@@ -2,6 +2,7 @@ package com.microservice.microserviceshoppingcart.domain.usecase;
 
 import com.microservice.microserviceshoppingcart.domain.exception.InvalidQuantityProducts;
 import com.microservice.microserviceshoppingcart.domain.exception.OutOfStockException;
+import com.microservice.microserviceshoppingcart.domain.exception.ShoppingCartNotFound;
 import com.microservice.microserviceshoppingcart.domain.models.Category;
 import com.microservice.microserviceshoppingcart.domain.models.Item;
 import com.microservice.microserviceshoppingcart.domain.models.Product;
@@ -9,17 +10,17 @@ import com.microservice.microserviceshoppingcart.domain.models.ShoppingCart;
 import com.microservice.microserviceshoppingcart.domain.spi.IProductPersistencePort;
 import com.microservice.microserviceshoppingcart.domain.spi.IShoppingCartPersistencePort;
 import com.microservice.microserviceshoppingcart.domain.spi.ItemPersistencePort;
+import com.microservice.microserviceshoppingcart.infrastructure.exception.ItemNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Optional;
+import java.util.*;
 
+import static com.microservice.microserviceshoppingcart.utils.Constants.PRODUCT_NOT_FOUND_ON_CART;
+import static com.microservice.microserviceshoppingcart.utils.Constants.SHOPPING_CART_NOT_FOUND;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -189,6 +190,69 @@ class ShoppingCartUseCaseTest {
         verify(productPersistencePort).getProductById(2L);
         verify(productPersistencePort).getProductById(3L);
         verify(productPersistencePort).getProductById(4L);
+    }
+
+    @Test
+    void removeProduct_shouldRemoveProductFromCartSuccessfully() {
+        // Arrange
+        Long userId = 1L;
+        Long productId = 1L;
+
+        Item item1 = new Item();
+        item1.setProductId(1L);
+
+        Item item2 = new Item();
+        item2.setProductId(2L);
+
+        ShoppingCart shoppingCart = new ShoppingCart();
+        shoppingCart.setItems(new ArrayList<>(List.of(item1, item2)));
+
+        when(shoppingCartPersistencePort.getShoppingCartByUserId(userId))
+                .thenReturn(Optional.of(shoppingCart));
+
+        // Act
+        shoppingCartUseCase.removeProduct(productId, userId);
+
+        // Assert
+        assertEquals(1, shoppingCart.getItems().size());
+        verify(shoppingCartPersistencePort, times(1)).updateCart(shoppingCart);
+    }
+
+    @Test
+    void removeProduct_shouldThrowItemNotFoundExceptionIfProductNotInCart() {
+        // Arrange
+        Long userId = 1L;
+        Long productId = 3L; // Product not in cart
+
+        Item item1 = new Item();
+        item1.setProductId(1L);
+
+        Item item2 = new Item();
+        item2.setProductId(2L);
+
+        ShoppingCart shoppingCart = new ShoppingCart();
+        shoppingCart.setItems(new ArrayList<>(List.of(item1, item2)));
+
+        when(shoppingCartPersistencePort.getShoppingCartByUserId(userId))
+                .thenReturn(Optional.of(shoppingCart));
+
+        // Act & Assert
+        assertThrows(ItemNotFoundException.class, () -> shoppingCartUseCase.removeProduct(productId, userId));
+        verify(shoppingCartPersistencePort, never()).updateCart(shoppingCart);  // No se debería llamar a updateCart
+    }
+
+    @Test
+    void removeProduct_shouldThrowShoppingCartNotFoundExceptionIfCartDoesNotExist() {
+        // Arrange
+        Long userId = 1L;
+        Long productId = 1L;
+
+        when(shoppingCartPersistencePort.getShoppingCartByUserId(userId))
+                .thenReturn(Optional.empty()); // Carrito no encontrado
+
+        // Act & Assert
+        assertThrows(ShoppingCartNotFound.class, () -> shoppingCartUseCase.removeProduct(productId, userId));
+        verify(shoppingCartPersistencePort, never()).updateCart(any());  // No se debería llamar a updateCart
     }
 
 
