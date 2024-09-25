@@ -31,7 +31,7 @@ public class BeanConfiguration {
 
     @Bean
     public IShoppingCartPersistencePort shoppingCarPersistencePort() {
-        return new ShoppingCartJpaAdapter(shoppingCarRepository, shoppingCartEntityMapper, cartItemRepository);
+        return new ShoppingCartJpaAdapter(shoppingCarRepository, shoppingCartEntityMapper);
     }
 
     @Bean

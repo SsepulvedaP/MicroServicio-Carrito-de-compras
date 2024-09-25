@@ -4,4 +4,5 @@ import com.microservice.microserviceshoppingcart.application.dto.request.ItemReq
 
 public interface ICartHandler {
     void addProductToCart(ItemRequest itemRequest, Long userId);
+    void removeProduct(Long productId, Long userId);
 }

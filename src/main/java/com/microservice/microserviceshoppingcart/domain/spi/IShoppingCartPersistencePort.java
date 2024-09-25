@@ -9,4 +9,5 @@ public interface IShoppingCartPersistencePort {
     Optional<ShoppingCart> getShoppingCartByUserId(Long userId);
     ShoppingCart getShoppingCartById(Long id);
     void updateCart(ShoppingCart shoppingCart);
+    void removeProduct(Long productId, Long userId);
 }

@@ -27,4 +27,9 @@ public class CartHandler implements ICartHandler{
         Item item = productRequestMapper.toItem(itemRequest);
         shoppingCarServicePort.addProduct(item, userId);
     }
+
+    @Override
+    public void removeProduct(Long productId, Long userId) {
+        shoppingCarServicePort.removeProduct(productId, userId);
+    }
 }
