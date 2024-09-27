@@ -2,6 +2,7 @@ package com.microservice.microserviceshoppingcart.infrastructure.jpa.adapter;
 
 
 
+
 import com.microservice.microserviceshoppingcart.domain.models.ShoppingCart;
 import com.microservice.microserviceshoppingcart.domain.spi.IShoppingCartPersistencePort;
 
@@ -10,7 +11,6 @@ import com.microservice.microserviceshoppingcart.infrastructure.exception.NotSho
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.entity.ShoppingCartEntity;
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.mapper.ShoppingCartEntityMapper;
 
-import com.microservice.microserviceshoppingcart.infrastructure.jpa.repository.ICartItemRepository;
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.repository.IShoppingCartRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.transaction.annotation.Transactional;

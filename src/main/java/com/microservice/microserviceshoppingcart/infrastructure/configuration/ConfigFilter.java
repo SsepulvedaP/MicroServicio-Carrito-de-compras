@@ -13,6 +13,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import static com.microservice.microserviceshoppingcart.utils.Constants.ROLE_CLIENT;
+import static com.microservice.microserviceshoppingcart.utils.Constants.SECURITY_PATH;
 
 @Configuration
 @EnableWebSecurity
@@ -29,8 +30,9 @@ public class ConfigFilter {
                         authorizeHttpRequests
                                 .requestMatchers("/auth/**").permitAll()
                                 .requestMatchers("/swagger-ui/**","/v3/api-docs/**").permitAll()
-                                .requestMatchers(HttpMethod.POST,"/shopping-cart/**").hasAuthority(ROLE_CLIENT)
-                                .requestMatchers(HttpMethod.DELETE,"/shopping-cart/**").hasAuthority(ROLE_CLIENT)
+                                .requestMatchers(HttpMethod.POST,SECURITY_PATH).hasAuthority(ROLE_CLIENT)
+                                .requestMatchers(HttpMethod.DELETE,SECURITY_PATH).hasAuthority(ROLE_CLIENT)
+                                .requestMatchers(HttpMethod.GET,SECURITY_PATH).hasAuthority(ROLE_CLIENT)
                                 .anyRequest().authenticated()
                 )
                 .sessionManagement(sessionManagement ->

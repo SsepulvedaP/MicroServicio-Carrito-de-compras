@@ -15,5 +15,4 @@ public interface StockFeignClient {
         @GetMapping("/products/{id}")
         ResponseEntity<Product> getProductById(@PathVariable Long id);
 
-
 }

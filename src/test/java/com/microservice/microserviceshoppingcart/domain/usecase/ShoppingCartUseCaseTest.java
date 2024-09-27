@@ -3,12 +3,12 @@ package com.microservice.microserviceshoppingcart.domain.usecase;
 import com.microservice.microserviceshoppingcart.domain.exception.InvalidQuantityProducts;
 import com.microservice.microserviceshoppingcart.domain.exception.OutOfStockException;
 import com.microservice.microserviceshoppingcart.domain.exception.ShoppingCartNotFound;
-import com.microservice.microserviceshoppingcart.domain.models.Category;
-import com.microservice.microserviceshoppingcart.domain.models.Item;
-import com.microservice.microserviceshoppingcart.domain.models.Product;
-import com.microservice.microserviceshoppingcart.domain.models.ShoppingCart;
+import com.microservice.microserviceshoppingcart.domain.models.*;
+import com.microservice.microserviceshoppingcart.domain.pagination.PageCustom;
+import com.microservice.microserviceshoppingcart.domain.pagination.PageRequestCustom;
 import com.microservice.microserviceshoppingcart.domain.spi.IProductPersistencePort;
 import com.microservice.microserviceshoppingcart.domain.spi.IShoppingCartPersistencePort;
+import com.microservice.microserviceshoppingcart.domain.spi.ITransactionsPersistencePort;
 import com.microservice.microserviceshoppingcart.domain.spi.ItemPersistencePort;
 import com.microservice.microserviceshoppingcart.infrastructure.exception.ItemNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,10 +17,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
-import static com.microservice.microserviceshoppingcart.utils.Constants.PRODUCT_NOT_FOUND_ON_CART;
-import static com.microservice.microserviceshoppingcart.utils.Constants.SHOPPING_CART_NOT_FOUND;
+
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -34,6 +34,9 @@ class ShoppingCartUseCaseTest {
 
     @Mock
     private ItemPersistencePort itemPersistencePort;
+
+    @Mock
+    private ITransactionsPersistencePort transactionsPersistencePort;
 
     @InjectMocks
     private ShoppingCartUseCase shoppingCartUseCase;
@@ -255,5 +258,70 @@ class ShoppingCartUseCaseTest {
         verify(shoppingCartPersistencePort, never()).updateCart(any());  // No se debería llamar a updateCart
     }
 
+
+    @Test
+    void getPaginatedCartItems_ShouldReturnCorrectPage() {
+        Long userId = 1L;
+        Item item1 = new Item(1L, 1L, 2, new ShoppingCart());
+        Item item2 = new Item(2L, 2L, 1, new ShoppingCart());
+        Product product1 = new Product(1L, "Product1", "Description1", 10, 100.0, null, Collections.emptyList());
+        Product product2 = new Product(2L, "Product2", "Description2", 0, 200.0, null, Collections.emptyList());
+
+        ShoppingCart shoppingCart = new ShoppingCart();
+        shoppingCart.setItems(Arrays.asList(item1, item2));
+
+        when(shoppingCartPersistencePort.getShoppingCartByUserId(userId)).thenReturn(Optional.of(shoppingCart));
+        when(productPersistencePort.getProductById(1L)).thenReturn(product1);
+        when(productPersistencePort.getProductById(2L)).thenReturn(product2);
+        when(transactionsPersistencePort.nextSupplyDate(2L)).thenReturn(LocalDateTime.now().plusDays(30));
+
+        PageRequestCustom pageRequest = new PageRequestCustom(0, 10, "name", true);
+
+        PageCustom<CartItems> result = shoppingCartUseCase.getPaginatedCartItems(1L, pageRequest, null, null);
+
+        assertEquals(2, result.getTotalElements());
+        assertEquals(1, result.getTotalPages());
+        assertEquals(400.0, result.getTotalPrice());
+
+        verify(shoppingCartPersistencePort, times(1)).getShoppingCartByUserId(1L);
+        verify(productPersistencePort, times(4)).getProductById(anyLong());
+    }
+
+    @Test
+    void getPaginatedCartItems_ShouldThrowExceptionWhenCartIsEmpty() {
+        Long userId = 1L;
+        ShoppingCart shoppingCart = new ShoppingCart();
+        shoppingCart.setItems(Collections.emptyList());
+
+        when(shoppingCartPersistencePort.getShoppingCartByUserId(userId)).thenReturn(Optional.of(shoppingCart));
+
+        PageRequestCustom pageRequest = new PageRequestCustom(0, 10,  "name", true);
+
+        assertThrows(OutOfStockException.class, () -> shoppingCartUseCase.getPaginatedCartItems(1L, pageRequest, null, null));
+    }
+
+    @Test
+    void getPaginatedCartItems_ShouldReturnPaginatedResult() {
+        Long userId = 1L;
+        Item item1 = new Item(1L, 1L, 2, new ShoppingCart());
+        Item item2 = new Item(2L, 2L, 1, new ShoppingCart());
+        Product product1 = new Product(1L, "Product1", "Description1", 10, 100.0, null, Collections.emptyList());
+        Product product2 = new Product(2L, "Product2", "Description2", 0, 200.0, null, Collections.emptyList());
+
+        ShoppingCart shoppingCart = new ShoppingCart();
+        shoppingCart.setItems(Arrays.asList(item1, item2));
+
+        when(shoppingCartPersistencePort.getShoppingCartByUserId(userId)).thenReturn(Optional.of(shoppingCart));
+        when(productPersistencePort.getProductById(1L)).thenReturn(product1);
+        when(productPersistencePort.getProductById(2L)).thenReturn(product2);
+        when(transactionsPersistencePort.nextSupplyDate(anyLong())).thenReturn(LocalDateTime.now());
+
+        PageRequestCustom pageRequest = new PageRequestCustom(0, 1, "name", true);
+
+        PageCustom<CartItems> result = shoppingCartUseCase.getPaginatedCartItems(1L, pageRequest, null, null);
+
+        assertEquals(1, result.getContent().size());
+        assertEquals(2, result.getTotalElements());
+    }
 
 }
