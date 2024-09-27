@@ -1,7 +1,7 @@
 package com.microservice.microserviceshoppingcart.domain.spi;
 
-import com.microservice.microserviceshoppingcart.domain.models.ShoppingCart;
 
+import com.microservice.microserviceshoppingcart.domain.models.ShoppingCart;
 import java.util.Optional;
 
 public interface IShoppingCartPersistencePort {

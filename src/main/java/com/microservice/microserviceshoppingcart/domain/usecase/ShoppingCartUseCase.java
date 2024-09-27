@@ -1,19 +1,27 @@
 package com.microservice.microserviceshoppingcart.domain.usecase;
 
 import com.microservice.microserviceshoppingcart.domain.api.IShoppingCartServicePort;
+import com.microservice.microserviceshoppingcart.domain.exception.InvalidPaginationLimit;
 import com.microservice.microserviceshoppingcart.domain.exception.InvalidQuantityProducts;
 import com.microservice.microserviceshoppingcart.domain.exception.OutOfStockException;
 import com.microservice.microserviceshoppingcart.domain.exception.ShoppingCartNotFound;
+import com.microservice.microserviceshoppingcart.domain.models.CartItems;
 import com.microservice.microserviceshoppingcart.domain.models.Item;
 import com.microservice.microserviceshoppingcart.domain.models.Product;
 import com.microservice.microserviceshoppingcart.domain.models.ShoppingCart;
+import com.microservice.microserviceshoppingcart.domain.pagination.PageCustom;
+import com.microservice.microserviceshoppingcart.domain.pagination.PageRequestCustom;
 import com.microservice.microserviceshoppingcart.domain.spi.IProductPersistencePort;
 import com.microservice.microserviceshoppingcart.domain.spi.IShoppingCartPersistencePort;
+import com.microservice.microserviceshoppingcart.domain.spi.ITransactionsPersistencePort;
 import com.microservice.microserviceshoppingcart.domain.spi.ItemPersistencePort;
 import com.microservice.microserviceshoppingcart.infrastructure.exception.ItemNotFoundException;
 
 import java.time.LocalDateTime;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
+
 
 import static com.microservice.microserviceshoppingcart.utils.Constants.*;
 
@@ -22,11 +30,13 @@ public class ShoppingCartUseCase implements IShoppingCartServicePort {
     private final IShoppingCartPersistencePort shoppingCartPersistencePort;
     private final IProductPersistencePort productPersistencePort;
     private final ItemPersistencePort itemPersistencePort;
+    private final ITransactionsPersistencePort transactionsPersistencePort;
 
-    public ShoppingCartUseCase(IShoppingCartPersistencePort shoppingCarPersistencePort, IProductPersistencePort productPersistencePort, ItemPersistencePort itemPersistencePort) {
+    public ShoppingCartUseCase(IShoppingCartPersistencePort shoppingCarPersistencePort, IProductPersistencePort productPersistencePort, ItemPersistencePort itemPersistencePort, ITransactionsPersistencePort transactionsPersistencePort) {
         this.shoppingCartPersistencePort = shoppingCarPersistencePort;
         this.productPersistencePort = productPersistencePort;
         this.itemPersistencePort = itemPersistencePort;
+        this.transactionsPersistencePort = transactionsPersistencePort;
     }
 
     @Override
@@ -67,6 +77,94 @@ public class ShoppingCartUseCase implements IShoppingCartServicePort {
         shoppingCartPersistencePort.updateCart(shoppingCart);
     }
 
+    @Override
+    public PageCustom<CartItems> getPaginatedCartItems(Long userId, PageRequestCustom pageRequest, String categoryName, String brandName) {
+        ShoppingCart shoppingCart = shoppingCartPersistencePort.getShoppingCartByUserId(userId)
+                .orElseThrow(() -> new ShoppingCartNotFound(SHOPPING_CART_NOT_FOUND));
+
+        //Funcion para mappear los items a CartItems
+        List<CartItems> cartItemsList = shoppingCart.getItems().stream()
+                .map(this::mapToCartItems)
+                .filter(cartItem -> filterByCategoryAndBrand(cartItem, categoryName, brandName))
+                .sorted(getComparator(pageRequest.isAscending()))
+                .toList();
+
+        if (cartItemsList.isEmpty()) {
+            throw new OutOfStockException(NOT_FOUND_PRODUCT_IN_CART);
+        }
+
+        List<CartItems> paginatedItems = getPaginatedItems(cartItemsList, pageRequest);
+
+
+        double totalPrice = paginatedItems.stream()
+                .mapToDouble(CartItems::getTotalPrice)
+                .sum();
+
+
+        int totalElements = cartItemsList.size();
+        int totalPages = (int) Math.ceil((double) totalElements / pageRequest.getSize());
+
+        return new PageCustom<>(
+                paginatedItems,
+                totalElements,
+                totalPages,
+                pageRequest.getPage(),
+                pageRequest.isAscending(),
+                totalPrice
+        );
+    }
+
+
+    private CartItems mapToCartItems(Item item) {
+        Product product = productPersistencePort.getProductById(item.getProductId());
+
+        int stockAvailable = product.getQuantity();
+        LocalDateTime replenishmentDate = transactionsPersistencePort.nextSupplyDate(item.getProductId());
+
+        String categoryName = product.getCategories().isEmpty() ? null : product.getCategories().get(FIRST_CATEGORY).getName();
+        String brandName = product.getBrand() != null ? product.getBrand().getName() : null;
+
+        double totalPrice = product.getPrice() * item.getQuantity();
+
+        return new CartItems(
+                item.getProductId(),
+                product.getName(),
+                item.getQuantity(),
+                product.getPrice(),
+                totalPrice,
+                stockAvailable,
+                replenishmentDate,
+                categoryName,
+                brandName
+        );
+    }
+
+
+    private boolean filterByCategoryAndBrand(CartItems cartItem, String categoryName, String brandName) {
+        Product product = productPersistencePort.getProductById(cartItem.getProductId());
+
+        boolean categoryMatches = (categoryName == null || categoryName.isEmpty()) ||
+                product.getCategories().stream().anyMatch(category -> category.getName().equalsIgnoreCase(categoryName));
+
+        boolean brandMatches = (brandName == null || brandName.isEmpty()) ||
+                product.getBrand().getName().equalsIgnoreCase(brandName);
+
+        return categoryMatches && brandMatches;
+    }
+
+    private Comparator<CartItems> getComparator(boolean ascending) {
+        Comparator<CartItems> comparator = Comparator.comparing(CartItems::getProductName);
+        return ascending ? comparator : comparator.reversed();
+    }
+
+    private List<CartItems> getPaginatedItems(List<CartItems> cartItemsList, PageRequestCustom pageRequest) {
+        int start = pageRequest.getPage() * pageRequest.getSize();
+        int end = Math.min(start + pageRequest.getSize(), cartItemsList.size());
+        if (start >= cartItemsList.size()) {
+            throw new InvalidPaginationLimit(INVALID_PAGINATION_LIMIT);
+        }
+        return cartItemsList.subList(start, end);
+    }
 
 
     private ShoppingCart getOrCreateShoppingCart(Long userId) {
@@ -84,11 +182,13 @@ public class ShoppingCartUseCase implements IShoppingCartServicePort {
     }
 
     private void validateStock(Product product, int requestedQuantity) {
-        if (product.getQuantity() < requestedQuantity) {
-            LocalDateTime replenishmentDate = LocalDateTime.now().plusMonths(1);
-            throw new OutOfStockException(OUT_OF_STOCK + replenishmentDate);
+        int stockAvailable = product.getQuantity();
+        if (stockAvailable < requestedQuantity) {
+            LocalDateTime nextSupplyDate = transactionsPersistencePort.nextSupplyDate(product.getId());
+            throw new OutOfStockException(OUT_OF_STOCK + nextSupplyDate);
         }
     }
+
 
     private void validateCategoryLimit(ShoppingCart shoppingCart, Product product) {
         long categoryCount = countItemsInSameCategory(shoppingCart, product);
@@ -98,12 +198,9 @@ public class ShoppingCartUseCase implements IShoppingCartServicePort {
     }
 
     private long countItemsInSameCategory(ShoppingCart shoppingCart, Product product) {
-        // Contar cuántos productos en el carrito tienen categorías en común con el producto actual
         return shoppingCart.getItems().stream()
                 .filter(i -> {
-                    // Obtener el producto del ítem actual
                     Product itemProduct = productPersistencePort.getProductById(i.getProductId());
-                    // Comparar las categorías del producto en el carrito con las del nuevo producto
                     return itemProduct.getCategories().stream()
                             .anyMatch(category -> product.getCategories().stream()
                                     .anyMatch(c -> c.getId().equals(category.getId())));

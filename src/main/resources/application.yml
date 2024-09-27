@@ -10,6 +10,8 @@ feign:
   client:
     product-service:
       url: http://localhost:9090
+    transaction-service:
+      url: http://localhost:8080
 
 spring:
   datasource:

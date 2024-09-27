@@ -1,15 +1,14 @@
 package com.microservice.microserviceshoppingcart.infrastructure.configuration;
 
 import com.microservice.microserviceshoppingcart.domain.api.IShoppingCartServicePort;
-import com.microservice.microserviceshoppingcart.domain.spi.IProductPersistencePort;
-import com.microservice.microserviceshoppingcart.domain.spi.ISecurityPersistencePort;
-import com.microservice.microserviceshoppingcart.domain.spi.IShoppingCartPersistencePort;
-import com.microservice.microserviceshoppingcart.domain.spi.ItemPersistencePort;
+import com.microservice.microserviceshoppingcart.domain.spi.*;
 import com.microservice.microserviceshoppingcart.domain.usecase.ShoppingCartUseCase;
 import com.microservice.microserviceshoppingcart.infrastructure.feign.client.StockFeignClient;
+import com.microservice.microserviceshoppingcart.infrastructure.feign.client.TransactionsFeignClient;
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.adapter.ShoppingCartJpaAdapter;
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.adapter.StockFeignJpaAdapter;
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.adapter.ItemJpaAdapter;
+import com.microservice.microserviceshoppingcart.infrastructure.jpa.adapter.TransactionsFeignJpaAdapter;
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.mapper.ItemCartEntityMapper;
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.mapper.ShoppingCartEntityMapper;
 import com.microservice.microserviceshoppingcart.infrastructure.jpa.repository.ICartItemRepository;
@@ -27,6 +26,7 @@ public class BeanConfiguration {
     private final ShoppingCartEntityMapper shoppingCartEntityMapper;
     private final ItemCartEntityMapper itemCartEntityMapper;
     private final StockFeignClient stockFeignClient;
+    private final TransactionsFeignClient transactionsFeignClient;
     private final ICartItemRepository cartItemRepository;
 
     @Bean
@@ -40,13 +40,18 @@ public class BeanConfiguration {
     }
 
     @Bean
+    public ITransactionsPersistencePort transactionsPersistencePort() {
+        return new TransactionsFeignJpaAdapter(transactionsFeignClient);
+    }
+
+    @Bean
     public ItemPersistencePort itemPersistencePort() {
         return new ItemJpaAdapter(cartItemRepository, itemCartEntityMapper, shoppingCarRepository);
     }
 
     @Bean
-    public IShoppingCartServicePort shoppingCarServicePort(IShoppingCartPersistencePort shoppingCarPersistencePort, IProductPersistencePort productPersistencePort, ItemPersistencePort itemPersistencePort) {
-        return new ShoppingCartUseCase(shoppingCarPersistencePort, productPersistencePort, itemPersistencePort);
+    public IShoppingCartServicePort shoppingCarServicePort(IShoppingCartPersistencePort shoppingCarPersistencePort, IProductPersistencePort productPersistencePort, ItemPersistencePort itemPersistencePort, ITransactionsPersistencePort transactionsPersistencePort) {
+        return new ShoppingCartUseCase(shoppingCarPersistencePort, productPersistencePort, itemPersistencePort, transactionsPersistencePort);
     }
 
     @Bean

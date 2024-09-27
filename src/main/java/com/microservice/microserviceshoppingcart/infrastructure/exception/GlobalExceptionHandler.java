@@ -45,8 +45,10 @@ public class GlobalExceptionHandler {
         return new ResponseEntity<>(ExceptionResponseBuilder.buildResponse(PRODUCT_NOT_FOUND, HttpStatus.NOT_FOUND), HttpStatus.NOT_FOUND);
     }
 
-    @ExceptionHandler(Exception.class)
-    public ResponseEntity<Object> handleGeneralException() {
+
+    @ExceptionHandler(FeignException.InternalServerError.class)
+    public ResponseEntity<Object> handleFeignInternalServerError() {
         return new ResponseEntity<>(ExceptionResponseBuilder.buildResponse(UNEXPECTED_ERROR, HttpStatus.INTERNAL_SERVER_ERROR), HttpStatus.INTERNAL_SERVER_ERROR);
     }
+
 }
